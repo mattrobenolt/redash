@@ -772,6 +772,69 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
 
         return query
 
+    @classmethod
+    def fork(cls, id, user, org):
+        query = cls.get_by_id_and_org(id, org)
+        forked_query = Query()
+        forked_query.name = 'Copy of (#{}) {}'.format(id, query.name)
+        forked_query.user = user
+        forked_list = ['org', 'data_source', 'latest_query_data', 'description', 'query', 'query_hash']
+        for a in forked_list:
+            setattr(forked_query, a, getattr(query, a))
+        forked_query.save()
+
+        forked_visualizations = []
+        for v in query.visualizations:
+            if v.type == 'TABLE':
+                continue
+            forked_v = v.to_dict()
+            forked_v['options'] = v.options
+            forked_v['query'] = forked_query
+            forked_v.pop('id')
+            forked_visualizations.append(forked_v)
+
+        with db.database.atomic():
+            Visualization.insert_many(forked_visualizations).execute()
+        return forked_query
+
+    def pre_save(self, created):
+        super(Query, self).pre_save(created)
+        self.query_hash = utils.gen_query_hash(self.query)
+        self._set_api_key()
+
+        if self.last_modified_by is None:
+            self.last_modified_by = self.user
+
+    def post_save(self, created):
+        if created:
+            self._create_default_visualizations()
+
+    def update_instance_tracked(self, changing_user, old_object=None, *args, **kwargs):
+        self.version += 1
+        self.update_instance(*args, **kwargs)
+        # save Change record
+        new_change = Change.save_change(user=changing_user, old_object=old_object, new_object=self)
+        return new_change
+
+    def tracked_save(self, changing_user, old_object=None, *args, **kwargs):
+        self.version += 1
+        self.save(*args, **kwargs)
+        # save Change record
+        new_change = Change.save_change(user=changing_user, old_object=old_object, new_object=self)
+        return new_change
+
+    def _create_default_visualizations(self):
+        table_visualization = Visualization(query=self, name="Table",
+                                            description='',
+                                            type="TABLE", options="{}")
+        table_visualization.save()
+
+    def _set_api_key(self):
+        if not self.api_key:
+            self.api_key = hashlib.sha1(
+                u''.join((str(time.time()), self.query, str(self.user_id), self.name)).encode('utf-8')).hexdigest()
+
+>>>>>>> add query fork to models.py
     @property
     def runtime(self):
         return self.latest_query_data.runtime
