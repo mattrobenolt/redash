@@ -792,9 +792,10 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
             forked_v['query'] = forked_query
             forked_v.pop('id')
             forked_visualizations.append(forked_v)
-
-        with db.database.atomic():
-            Visualization.insert_many(forked_visualizations).execute()
+        
+        if len(forked_visualizations) > 0:
+            with db.database.atomic():
+                Visualization.insert_many(forked_visualizations).execute()
         return forked_query
 
     def pre_save(self, created):
