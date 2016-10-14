@@ -627,6 +627,7 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
     last_modified_by = db.relationship(User, backref="modified_queries",
                                        foreign_keys=[last_modified_by_id])
     is_archived = Column(db.Boolean, default=False, index=True)
+    is_draft = Column(db.Boolean, default=False, index=True)
     schedule = Column(db.String(10), nullable=True)
     options = Column(PseudoJSON, default={})
 
@@ -646,6 +647,7 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
             'schedule': self.schedule,
             'api_key': self.api_key,
             'is_archived': self.is_archived,
+            'is_draft': self.is_draft,
             'updated_at': self.updated_at,
             'created_at': self.created_at,
             'data_source_id': self.data_source_id,
@@ -700,9 +702,9 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
             .order_by(Query.created_at.desc()))
 
         if drafts:
-            q = q.filter(Query.name == 'New Query')
+            q = q.filter(Query.is_draft == True)
         else:
-            q = q.filter(Query.name != 'New Query')
+            q = q.filter(Query.is_draft == False)
 
         return q
 
@@ -758,6 +760,7 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
                      Event.object_id != None,
                      Event.object_type == 'query',
                      DataSourceGroup.group_id.in_([g.id for g in groups]),
+                     Query.is_draft == False,
                      Query.is_archived == False)
                  .group_by(Event.object_id, Query.id, User.id)
                  .order_by(db.desc(db.func.count(0))))
@@ -1005,6 +1008,7 @@ class Dashboard(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model
     layout = Column(db.Text)
     dashboard_filters_enabled = Column(db.Boolean, default=False)
     is_archived = Column(db.Boolean, default=False, index=True)
+    is_draft = Column(db.Boolean, default=False, index=True)
 
     __tablename__ = 'dashboards'
     __mapper_args__ = {
@@ -1059,6 +1063,7 @@ class Dashboard(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model
             'dashboard_filters_enabled': self.dashboard_filters_enabled,
             'widgets': widgets_layout,
             'is_archived': self.is_archived,
+            'is_draft': self.is_draft,
             'updated_at': self.updated_at,
             'created_at': self.created_at,
             'version': self.version
@@ -1097,6 +1102,7 @@ class Dashboard(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model
                      Event.object_type == 'dashboard',
                      Dashboard.org == org,
                      Dashboard.is_archived == False,
+                     Dashboard.is_draft == False,
                      DataSourceGroup.group_id.in_(group_ids) |
                      (Dashboard.user_id == user_id) |
                      ((Widget.dashboard != None) & (Widget.visualization == None)))
