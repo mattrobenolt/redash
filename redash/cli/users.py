@@ -1,5 +1,5 @@
 from flask_script import Manager, prompt_pass
-from peewee import IntegrityError
+from sqlalchemy.exc import IntegrityError
 
 from redash import models
 from redash.handlers.users import invite_user

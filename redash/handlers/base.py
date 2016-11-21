@@ -2,7 +2,7 @@ import time
 from flask import request, Blueprint
 from flask_restful import Resource, abort
 from flask_login import current_user, login_required
-from peewee import DoesNotExist
+from sqlalchemy.exc import DataError
 
 from redash import settings
 from redash.tasks import record_event as record_event_task
@@ -66,10 +66,11 @@ def require_fields(req, fields):
 
 
 def get_object_or_404(fn, *args, **kwargs):
-    try:
-        return fn(*args, **kwargs)
-    except DoesNotExist:
+    rv = fn(*args, **kwargs)
+    if rv is None:
         abort(404)
+    else:
+        return rv
 
 
 def paginate(query_set, page, page_size, serializer):
