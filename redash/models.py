@@ -834,7 +834,6 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
             self.api_key = hashlib.sha1(
                 u''.join((str(time.time()), self.query, str(self.user_id), self.name)).encode('utf-8')).hexdigest()
 
->>>>>>> add query fork to models.py
     @property
     def runtime(self):
         return self.latest_query_data.runtime
